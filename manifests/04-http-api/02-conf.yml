@@ -1,0 +1,101 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: api-config
+  namespace: kafka
+data:
+  http-api.py: |
+    from flask import Flask, request # pip install Flask
+    from flask_httpauth import HTTPBasicAuth # pip install Flask-HTTPAuth
+    from werkzeug.security import generate_password_hash, check_password_hash
+    from kafka_utils import produce, consume
+    import json
+
+
+    app = Flask(__name__)
+    auth = HTTPBasicAuth()
+
+    users = {
+        "admin": generate_password_hash("test1234")
+    }
+
+    @auth.verify_password
+    def verify_password(username, password):
+        if username in users and \
+                check_password_hash(users.get(username), password):
+            return username
+
+    @app.route('/produce', methods=['POST'])
+    @auth.login_required
+    def api_produce():
+      ans = produce(request.get_json())
+      print(ans)
+      return '', 204
+
+    @app.route('/consume', methods=['POST'])
+    @auth.login_required
+    def api_consume():
+      data=consume(request.get_json())
+      response = app.response_class(
+            response=json.dumps(data),
+            status=200,
+            mimetype='application/json'
+        )
+      return response
+
+  kafka_utils.py: |
+    from kafka import KafkaProducer, KafkaConsumer
+    import json
+
+
+    CONNECT = 'kafka.kafka.svc:9094'
+    USERNAME = 'admin'
+    PASSWORD = 'test1234'
+    GROUP = 'http-api'
+
+
+    def json_serializer(data):
+        return json.dumps(data).encode("utf-8")
+
+    def key_serializer(data):
+        return data.encode("utf-8")
+
+
+    def produce(request_json):
+        producer = KafkaProducer(bootstrap_servers=[CONNECT], 
+                                value_serializer=json_serializer,
+                                security_protocol='SASL_PLAINTEXT',
+                                sasl_mechanism='PLAIN',
+                                sasl_plain_username=USERNAME,
+                                sasl_plain_password=PASSWORD)
+
+        request = json.loads(request_json)
+
+        topic = "queue_main"
+        key = request["key"]
+        msg = request["msg"]
+
+        producer.send(topic, value=msg, key=key)
+        return "Successful"
+        # producer.send(mainTopicName, value=sample_data)#, key=topicName)
+
+
+    def consume(request_json):
+        request = json.loads(request_json)
+
+        topic = request["topic"]
+
+        consumer = KafkaConsumer(topic,
+                                bootstrap_servers=CONNECT,
+                                auto_offset_reset='earliest',
+                                group_id=GROUP,
+                                security_protocol='SASL_PLAINTEXT',
+                                sasl_mechanism='PLAIN',
+                                sasl_plain_username=USERNAME,
+                                sasl_plain_password=PASSWORD)
+
+        for msg in consumer:
+            data = json.loads(msg.value)
+            consumer.close()
+
+        return data

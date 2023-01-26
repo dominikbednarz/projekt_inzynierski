@@ -1,0 +1,61 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-b-config
+  namespace: kafka
+data:
+  app-B.py: |
+    from kafka import KafkaProducer
+    from kafka import KafkaConsumer
+    import json
+    import hashlib
+
+
+    CONNECT = 'kafka.kafka.svc:9094'
+    USERNAME = 'admin'
+    PASSWORD = 'test1234'
+    GROUP = 'app-B'
+
+    sourceTopicName = "queue-B"
+    resultTopicName = "result-B"
+
+    ALGORITHM = 'sha512'
+
+
+    def json_serializer(data):
+        return json.dumps(data).encode("utf-8")
+
+    def make_hash(data):
+        h = hashlib.new(ALGORITHM)
+        h.update(data.encode('utf8')) 
+        result = h.hexdigest()
+        return result
+
+    consumer = KafkaConsumer(sourceTopicName,
+                            bootstrap_servers=CONNECT,
+                            auto_offset_reset='earliest',
+                            group_id=GROUP,
+                            security_protocol='SASL_PLAINTEXT',
+                            sasl_mechanism='PLAIN',
+                            sasl_plain_username=USERNAME,
+                            sasl_plain_password=PASSWORD)
+
+    producer = KafkaProducer(bootstrap_servers=[CONNECT], 
+                            # key_serializer=key_serializer,
+                            value_serializer=json_serializer,
+                            security_protocol='SASL_PLAINTEXT',
+                            sasl_mechanism='PLAIN',
+                            sasl_plain_username=USERNAME,
+                            sasl_plain_password=PASSWORD)
+
+    if __name__ == '__main__':
+        print("Start processing data from topic: %s" % sourceTopicName)
+
+        for msg in consumer:
+            data = json.loads(msg.value)
+            print("Data read: {}".format(data))
+            
+            result = make_hash(data)
+            print("SHA512: {}".format(result))
+
+            producer.send(resultTopicName, value=result)

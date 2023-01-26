@@ -1,0 +1,102 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: kafka
+  namespace: kafka
+spec:
+  serviceName: kafka
+  replicas: 3
+  podManagementPolicy: "Parallel"
+  updateStrategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app: kafka
+  template:
+    metadata:
+      labels:
+        app: kafka
+      annotations:
+        prometheus.io/scrape: 'true'
+        prometheus.io/port: '19000'
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: px/running
+                operator: NotIn
+                values:
+                - "false"
+              - key: px/enabled
+                operator: NotIn
+                values:
+                - "false"
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - kafka
+            topologyKey: "kubernetes.io/hostname"
+      initContainers:
+      - name: prometheus-jmx-exporter
+        image: quay.io/d0min0/projekt_inzynierski:jmx-exporter-0.17.0
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: SHARED_VOLUME_PATH
+          value: /shared-volume
+        volumeMounts:
+        - mountPath: /shared-volume
+          name: shared-volume
+      containers:
+      - name: k8skafka
+        image: quay.io/d0min0/projekt_inzynierski:kafka-2.13-3.3.1
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 9092
+          name: external
+        - containerPort: 9093
+          name: internal
+        - containerPort: 9094
+          name: cluster
+        - containerPort: 9095
+          name: controller
+        command: ["/bin/sh"]
+        args:
+          - -c
+          - >-
+            mkdir /kraft-config && cp /config/server.properties /kraft-config/server.properties &&
+            sed -i "s/node.id=0/node.id=${HOSTNAME##*-}/g" /kraft-config/server.properties &&
+            bin/kafka-storage.sh format -t ${CLUSTER_ID} -c /kraft-config/server.properties --ignore-formatted &&
+            bin/kafka-server-start.sh /kraft-config/server.properties \
+              --override advertised.listeners=INTERNAL://${POD_IP}:9093,EXTERNAL://${EXTERNAL_LB}:3200${HOSTNAME##*-},CLUSTER://:9094
+        env:
+        - name: KAFKA_HEAP_OPTS
+          value: "-Xmx1G -Xms1G"
+        - name: KAFKA_OPTS
+          value: "-Djava.security.auth.login.config=/config/kafka_server_jaas.conf"
+        - name: EXTRA_ARGS
+          value: "-javaagent:/shared-volume/jmx_prometheus_javaagent.jar=19000:/shared-volume/configs/kafka-config.yaml"
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: CLUSTER_ID
+          value: ZWMwMzhlMDI4MTBmNGM5ZT
+        - name: EXTERNAL_LB
+          value: "10.232.29.140"
+        volumeMounts:
+        - name: kafka-config
+          mountPath: /config
+        - name: shared-volume
+          mountPath: /shared-volume
+      volumes:
+      - name: kafka-config
+        configMap:
+          name: kafka-config
+      - name: shared-volume
+        emptyDir: {}

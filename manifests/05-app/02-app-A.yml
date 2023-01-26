@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-a
+  namespace: kafka
+  labels:
+    app: app-a
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app: app-a
+  template:
+    metadata:
+      labels:
+        app: app-a
+      name: app-a
+    spec:
+      containers:
+      - name: app-a
+        image: quay.io/d0min0/projekt_inzynierski:app-0.1
+        imagePullPolicy: IfNotPresent
+        resources:
+          requests:
+            memory: 100Mi
+            cpu: 100m
+          limits:
+            memory: 2Gi
+            cpu: 1000m
+        command:
+        - sh 
+        - -c 
+        - "cp /config/app-A.py . && \
+          chmod +x app-A.py && \
+          python3 app-A.py"
+        volumeMounts:
+        - name: app-a-config
+          mountPath: /config/
+      volumes:
+      - name: app-a-config
+        configMap:
+          name: app-a-config

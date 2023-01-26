@@ -1,0 +1,18 @@
+{% extends "hello/layout.html" %}
+{% block title %}
+Create topic
+{% endblock %}
+{% block content %}
+<div class="container"></div>
+    <form action = "" method = "POST">
+        <fieldset>
+            <legend>Create topic</legend>
+            {% csrf_token %}
+            {{ form.as_p }}
+            <!-- <input type="submit" value="Submit"> -->
+            <button type="submit" class="btn btn-primary">Create</button>
+        </fieldset>
+    </form>
+    {% include 'hello/messages.html' %}
+</div>
+{% endblock %}

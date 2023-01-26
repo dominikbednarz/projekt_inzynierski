@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: management
+  namespace: kafka
+  labels:
+    app: management
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: management
+  template:
+    metadata:
+      labels:
+        app: management
+      name: management
+    spec:
+      serviceAccountName: management
+      containers:
+      - name: management
+        image: quay.io/d0min0/projekt_inzynierski:management-0.1
+        imagePullPolicy: IfNotPresent
+        resources:
+          limits:
+            memory: 300Mi
+            cpu: 100m
+        command:
+          - sh
+          - -c
+          - "cp /config/management.py . && \
+            chmod +x management.py && \
+            python3 management.py"
+        volumeMounts:
+        - name: management-config
+          mountPath: /config/
+      volumes:
+      - name: management-config
+        configMap:
+          name: management-config
+

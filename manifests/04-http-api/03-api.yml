@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+  namespace: kafka
+  labels:
+    app: api
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app: api
+  template:
+    metadata:
+      labels:
+        app: api
+      name: api
+    spec:
+      containers:
+      - name: api
+        image: quay.io/d0min0/projekt_inzynierski:api-0.2
+        imagePullPolicy: IfNotPresent
+        resources:
+          requests:
+            memory: 100Mi
+            cpu: 100m
+          limits:
+            memory: 500Mi
+            cpu: 1000m
+        command:
+        - sh 
+        - -c 
+        - "cp /config/http-api.py . && \
+          cp /config/kafka_utils.py . && \
+          chmod +x http-api.py && \
+          chmod +x kafka_utils.py && \
+          uwsgi --master --http 127.0.0.1:8080 --module http-api:app"
+        volumeMounts:
+        - name: api-config
+          mountPath: /config/
+      volumes:
+      - name: api-config
+        configMap:
+          name: api-config

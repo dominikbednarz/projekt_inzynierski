@@ -1,0 +1,17 @@
+{% extends "hello/layout.html" %}
+{% block title %}
+    Log a message
+{% endblock %}
+{% block content %}
+<div class="container"></div>
+    <form action = "" method = "POST">
+        <fieldset>
+            <legend>Log message</legend>
+            {% csrf_token %}
+            {{ form.as_p }}
+            <button type="submit" class="save btn btn-default">Log message</button>
+        </fieldset>
+    </form>
+    {% include 'hello/messages.html' %}
+</div>
+{% endblock %}

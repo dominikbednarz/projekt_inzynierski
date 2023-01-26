@@ -1,0 +1,27 @@
+{% extends "hello/layout.html" %}
+{% block title %}
+Topics list
+{% endblock %}
+{% block content %}
+<div class="container"></div>
+    <h3>Full list of Kafka topics</h3>
+    <table>
+        <thead>
+        <tr>
+            <th>Topic name</th>
+            <th>Partitions</th>
+            <th>Replication</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for n in full_list %}
+        <tr> 
+            <td>{{ n.0 }}</td>
+            <td>{{ n.1 }}</td>
+            <td>{{ n.2 }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

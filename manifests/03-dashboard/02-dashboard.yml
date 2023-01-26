@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dashboard
+  namespace: kafka
+  labels:
+    app: dashboard
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dashboard
+  template:
+    metadata:
+      labels:
+        app: dashboard
+      name: dashboard
+    spec:
+      containers:
+      - name: dashboard
+        image: quay.io/d0min0/projekt_inzynierski:dashboard-0.2
+        ports:
+        - name: http
+          containerPort: 8000
+        command:
+        - /bin/sh
+        - -c
+        - "python3 manage.py runserver"
